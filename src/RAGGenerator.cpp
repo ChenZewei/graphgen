@@ -2,7 +2,6 @@
 #define _RANDOMGRAPH_CPP
 
 #include "RAGGenerator.hpp"
-#define _NUM_CONSTRAINTS 1
 
 RAGGenerator :: RAGGenerator()
 {
@@ -10,7 +9,7 @@ RAGGenerator :: RAGGenerator()
 	exit( 0 );
 }
 
-RAGGenerator :: RAGGenerator(int64_t n, int64_t i, int64_t o, double c, double a, double b, double g)
+RAGGenerator :: RAGGenerator(int64_t n, int64_t i, int64_t o, double c, double a, double b, double g, bool h)
 {
 	numberOfNodes = n;
 	inDegree = i;
@@ -19,6 +18,12 @@ RAGGenerator :: RAGGenerator(int64_t n, int64_t i, int64_t o, double c, double a
 	alpha = a;
 	beta = b;
 	gamma = g;
+	heftStyleGraphs = h;
+
+	if( heftStyleGraphs == true )
+		numberOfConstraints = 1;
+	else
+		numberOfConstraints = 2;
 
 	for(int i=0; i<n; ++i)
 	{
@@ -26,7 +31,11 @@ RAGGenerator :: RAGGenerator(int64_t n, int64_t i, int64_t o, double c, double a
 		randomGraph.connectivityMatrix.push_back( tempVector );
 	}
 	randomGraph.singleConstraintVwgt.resize( n, 0 );
-	randomGraph.vwgt.resize( n * _NUM_CONSTRAINTS, 0 );
+	randomGraph.vwgt.resize( n * numberOfConstraints, 0 );
+	highPriorityConstraint.first=pow(10,4);
+	highPriorityConstraint.second=pow(10,6);
+	lowPriorityConstraint.first=pow(10,2);
+	lowPriorityConstraint.second=pow(10,3);
 }
 
 int64_t // Returns random number in range [a,b]
@@ -50,10 +59,21 @@ RAGGenerator :: printDOTFile()
 	{
 		for(int64_t j=0; j<nodesInList[i].size(); ++j)
 		{
+			file<<"\t"<<(nodesInList[i][j] + 1)<<"[label=\""<<(nodesInList[i][j] + 1)<<"(";
 			if( i==0 || i==height-1)
-				file<<"\t"<<(nodesInList[i][j] + 1)<<"[label=\""<<(nodesInList[i][j] + 1)<<"("<<randomGraph.singleConstraintVwgt[ nodesInList[i][j] ]<<")\",shape=rounded]\n";
+			{
+				if(randomGraph.ncon == 2)
+					file<<randomGraph.vwgt[ randomGraph.ncon*nodesInList[i][j] + 0 ]<<","<<randomGraph.vwgt[ randomGraph.ncon*nodesInList[i][j] + 1 ]<<")\",shape=rounded]\n";
+				else
+					file<<randomGraph.singleConstraintVwgt[ nodesInList[i][j] ]<<")\",shape=rounded]\n";	
+			}
 			else
-				file<<"\t"<<(nodesInList[i][j] + 1)<<"[label=\""<<(nodesInList[i][j] + 1)<<"("<<randomGraph.singleConstraintVwgt[ nodesInList[i][j] ]<<")\"]\n";
+			{
+				if(randomGraph.ncon == 2)
+					file<<randomGraph.vwgt[ randomGraph.ncon*nodesInList[i][j] + 0 ]<<","<<randomGraph.vwgt[ randomGraph.ncon*nodesInList[i][j] + 1 ]<<")\"]\n";
+				else
+					file<<randomGraph.singleConstraintVwgt[ nodesInList[i][j] ]<<")\"]\n";
+			}
 		}
 
 	}
@@ -69,6 +89,140 @@ RAGGenerator :: printDOTFile()
 	}
 	file<<"}\n";
 	file.close();
+}
+
+bool
+RAGGenerator :: hasMultipleHeads()
+{
+	DEBUG1(cout<<"\n[hasMultipleHeads] - Entering";)
+
+	bool retVal=true;
+	int64_t i=0, j=0;
+	GraphIR randomGraphTranspose;
+	for(i=0; i<numberOfNodes; ++i)
+	{
+		ConnectivityMatrix tempConnectivityMatrix;
+		randomGraphTranspose.connectivityMatrix.push_back(tempConnectivityMatrix);
+	}
+	for(i=0; i<numberOfNodes; ++i)
+	{
+		int64_t parent=i;
+		int64_t numberOfSuccessors=randomGraph.connectivityMatrix[ parent ].size();
+		for(j=0; j<numberOfSuccessors; ++j)
+		{
+			int64_t currentNode=randomGraph.connectivityMatrix[ parent ].list[j].first;
+			double parentComm=randomGraph.connectivityMatrix[ parent ].list[j].second;
+			pair <int64_t, double> temp(parent, parentComm);
+			randomGraphTranspose.connectivityMatrix[ currentNode ].list.push_back( temp );
+		}
+	}
+	for(i=1; i<numberOfNodes; ++i)
+	{
+		int64_t currentNode = i;
+		DEBUG4(cout<<"\n[hasMultipleHeads] - T["<<currentNode<<"].size()="<<randomGraphTranspose.connectivityMatrix[ currentNode ].size()<<" | ";)
+		for(j=0; j<randomGraphTranspose.connectivityMatrix[ currentNode ].size(); ++j)
+			DEBUG4(cout<<" "<<randomGraphTranspose.connectivityMatrix[ currentNode ].list[j].first;)
+
+		if( randomGraphTranspose.connectivityMatrix[ currentNode ].size() == 0 ) // If currentNode has no parent
+		{
+			retVal=false;
+			DEBUG4(cout<<"\n[hasMultipleHeads] - Faulty node that has no parent is T["<<currentNode<<"] | size()="<<randomGraphTranspose.connectivityMatrix[ currentNode ].size();)
+			break;
+			// int64_t t1 = randomInRange(0, i-1);
+			// int64_t t2 = randomInRange(0, nodesInList[t1].size()-1);
+			
+			// pair < int64_t, double > temp;
+			// temp.first = currentNode;
+			// temp.second = ceil( randomGraph.singleConstraintVwgt[ nodesInList[t1][t2] ] * CCR );
+			// randomGraph.connectivityMatrix[ nodesInList[t1][t2] ].list.push_back( temp );
+			// DEBUG2(cout<<"\nT["<<currentNode<<"] doesnt have any parents | forming a connection from T["<<nodesInList[t1][t2]<<"] to "<<currentNode;)
+			// numberOfEdges++;
+		}
+	}
+
+	DEBUG1(cout<<"\n[hasMultipleHeads] - Exiting";)
+	return retVal;
+}
+
+bool
+RAGGenerator :: hasMultipleEdgesBetweenNodes()
+{
+	DEBUG1(cout<<"\n[hasMultipleEdgesBetweenNodes] - Entering";)
+
+	bool retVal=true;
+	int64_t i=0, j=0;
+	for(i=0; i<numberOfNodes; ++i)
+	{
+		int64_t currentNode=i, numberOfSuccessors=randomGraph.connectivityMatrix[currentNode].size();
+		vector<int64_t> successorList;
+		for(j=0; j<numberOfSuccessors; ++j)
+		{
+			int64_t successor=randomGraph.connectivityMatrix[currentNode].list[j].first;
+			if( find( successorList.begin(), successorList.end(), successor ) == successorList.end() )
+				successorList.push_back( successor );
+			else
+			{
+				cout<<"\n[hasMultipleEdgesBetweenNodes] - Node["<<i<<"] has multiple edges to Node["<<successor<<"]";
+				retVal=false;
+				goto exitFlag;
+			}
+		}
+	}
+
+	exitFlag:
+	DEBUG1(cout<<"\n[hasMultipleEdgesBetweenNodes] - Exiting";)
+	return retVal;
+}
+
+bool
+RAGGenerator :: checkMETISFile(  )
+{
+	DEBUG1(cout<<"\n[checkMETISFile] - Entering";)
+
+	bool retVal=true;
+	GraphIR inputGraph;
+	inputGraph.parseMETIS( filename );
+	int64_t i=0, j=0;
+
+	if( inputGraph.numberOfVertices != numberOfNodes )
+	{
+		DEBUG2(cout<<"\n[checkMETISFile] - inputGraph.numberOfVertices="<<inputGraph.numberOfVertices<<" != randomGraph.numberOfNodes="<<numberOfNodes;)
+		retVal=false;
+		goto retFlag;
+	}
+
+	for(i=0; i<inputGraph.numberOfVertices; ++i)
+	{
+		if( inputGraph.connectivityMatrix[i].size() != randomGraph.connectivityMatrix[i].size() )
+		{
+			DEBUG2(cout<<"\n[checkMETISFile] - Task["<<i<<"] has "<<inputGraph.connectivityMatrix[i].size()<<" children in inputGraph and "<<randomGraph.connectivityMatrix[i].size()<<" children in randomGraph";)
+			retVal=false;
+			goto retFlag;
+		}
+		for(j=0; j<inputGraph.connectivityMatrix[i].size(); ++j)
+		{
+			if( inputGraph.connectivityMatrix[i].list[j].first == randomGraph.connectivityMatrix[i].list[j].first )
+			{
+				if( inputGraph.connectivityMatrix[i].list[j].second != randomGraph.connectivityMatrix[i].list[j].second )
+				{
+					DEBUG2(cout<<"\n[checkMETISFile] - i="<<i<<" | j="<<j<<"\ninputGraph.connectivityMatrix["<<i<<"].list["<<j<<"].second="<<inputGraph.connectivityMatrix[i].list[j].second<<" | randomGraph.connectivityMatrix["<<i<<"].list["<<j<<"].second="<<randomGraph.connectivityMatrix[i].list[j].second;)
+					retVal=false;
+					goto retFlag;
+				}
+			}
+			else
+			{
+				DEBUG2(cout<<"\n[checkMETISFile] - i="<<i<<" | j="<<j<<"\ninputGraph.connectivityMatrix["<<i<<"].list["<<j<<"].first="<<inputGraph.connectivityMatrix[i].list[j].first<<" | randomGraph.connectivityMatrix["<<i<<"].list["<<j<<"].first="<<randomGraph.connectivityMatrix[i].list[j].first;)
+				retVal=false;
+				goto retFlag;
+			}
+
+		}
+	}
+
+	retFlag:
+	DEBUG1(cout<<"\n[checkMETISFile] - Exiting";)
+	return retVal;
 }
 
 int
@@ -87,6 +241,7 @@ RAGGenerator :: run()
 	// Calculate height and width of the graph
 	height = ceil( sqrt( numberOfNodes )/alpha );
 	avgWidth = ceil( sqrt( numberOfNodes ) * alpha );
+	double applicationGraphBeta = (double) beta/100;
 	DEBUG1(cout<<"\n[run] - height="<<height<<" | avgWidth="<<avgWidth;)
 	for(level=0; ; level++)
 	{
@@ -146,11 +301,33 @@ RAGGenerator :: run()
 	for(i=0; i<numberOfNodes; ++i)
 	{
 		randomGraph.singleConstraintVwgt[ i ] = 1;
-		for(j=0; j<_NUM_CONSTRAINTS; ++j)
+		if(numberOfConstraints==1)
 		{
 //			randomGraph.vwgt[ i*NUM_CONSTRAINTS + j ] = 1;
-			randomGraph.vwgt[ i*_NUM_CONSTRAINTS + j ] = randomInRange( 0, 2*weightOfDAG );
-			randomGraph.singleConstraintVwgt[ i ] *= randomGraph.vwgt[ i*_NUM_CONSTRAINTS + j ];
+			randomGraph.singleConstraintVwgt[ i ] = randomGraph.vwgt[ i ] = randomInRange( 0, 2*weightOfDAG );
+		}
+		else if(numberOfConstraints==2)
+		{
+			// This is a GPU task {second constraint higher than first}
+			if( randomInRange(0, 100) < beta )
+			{
+				randomGraph.vwgt[ i*numberOfConstraints + 0 ] = randomInRange( lowPriorityConstraint.first, lowPriorityConstraint.second );
+				randomGraph.vwgt[ i*numberOfConstraints + 1 ] = randomInRange( highPriorityConstraint.first, highPriorityConstraint.second );
+				randomGraph.singleConstraintVwgt[ i ] = randomGraph.vwgt[ i*numberOfConstraints + 0 ] + randomGraph.vwgt[ i*numberOfConstraints + 1 ];	
+			}
+
+			// This is CPU task
+			else
+			{
+				randomGraph.vwgt[ i*numberOfConstraints + 0 ] = randomInRange( highPriorityConstraint.first, highPriorityConstraint.second );
+				randomGraph.vwgt[ i*numberOfConstraints + 1 ] = randomInRange( lowPriorityConstraint.first, lowPriorityConstraint.second );
+				randomGraph.singleConstraintVwgt[ i ] = randomGraph.vwgt[ i*numberOfConstraints + 0 ] + randomGraph.vwgt[ i*numberOfConstraints + 1 ];	
+			}
+		}
+		else
+		{
+			cout<<"\n[run] - Unknown numberOfConstraints value. Exiting.";
+			exit(0);
 		}
 	}
 
@@ -163,21 +340,57 @@ RAGGenerator :: run()
 		vector < int64_t >::iterator it;
 		for(it = nodesInList[i].begin(); it!= nodesInList[i].end(); ++it)
 		{
-			int64_t numberOfOutDegree = randomInRange( outDegree*(1-off), outDegree*(1+off) );
+			int64_t numberOfOutDegree = randomInRange( 1, outDegree*(1+off) );
 			DEBUG2(cout<<"\n\tnumberOfOutDegree="<<numberOfOutDegree;)
 			// For each such node j, make a connection to k where k's level is >= j's level.
 			// Choose 1 to outDegree such k's for each j.
-			for(j=0; j<numberOfOutDegree; ++j)
+
+			vector < pair<int64_t, int64_t> > remainingNodes;
+			for( j=i+1; j<height; ++j)
+				for( int k=0; k<nodesInList[j].size(); ++k)
+				{
+					pair<int64_t, int64_t> temp(j, k);
+					remainingNodes.push_back( temp );
+				}
+
+			if( numberOfOutDegree>remainingNodes.size() )
 			{
-				int64_t t1 = randomInRange(i+1, height-1);
-				int64_t t2 = randomInRange(0, nodesInList[t1].size()-1);
-				DEBUG3(cout<<" | ("<<t1<<","<<t2<<")";)				
-				pair < int64_t, double > temp;
-				temp.first = nodesInList[t1][t2];
-				temp.second = ceil( randomGraph.singleConstraintVwgt[ (*it) ] * CCR );
-				randomGraph.connectivityMatrix[(*it)].list.push_back( temp );
-				numberOfEdges++;
-			}			
+				for(j=0; j<remainingNodes.size(); ++j)
+				{
+					pair < int64_t, double > temp;
+					temp.first = nodesInList[ remainingNodes[j].first ][ remainingNodes[j].second ];
+					//temp.second = ceil( randomGraph.singleConstraintVwgt[ (*it) ] * CCR );
+					temp.second = ceil(randDoubleInRange( randomGraph.singleConstraintVwgt[ (*it) ] * CCR * ( 1-applicationGraphBeta/2 ), randomGraph.singleConstraintVwgt[ (*it) ] * CCR * ( 1+applicationGraphBeta/2 ) ));
+					randomGraph.connectivityMatrix[(*it)].list.push_back( temp );
+					numberOfEdges++;
+				}
+			}
+			else
+			{
+				for(j=0; j<numberOfOutDegree; ++j)
+				{
+					pair < int64_t, double > temp;
+					int64_t chosenIndex=rand()%remainingNodes.size();
+					temp.first = nodesInList[ remainingNodes[chosenIndex].first ][ remainingNodes[chosenIndex].second ];
+					temp.second = ceil(randDoubleInRange( randomGraph.singleConstraintVwgt[ (*it) ] * CCR * ( 1-applicationGraphBeta/2 ), randomGraph.singleConstraintVwgt[ (*it) ] * CCR * ( 1+applicationGraphBeta/2 ) ));
+					//temp.second = ceil( randomGraph.singleConstraintVwgt[ (*it) ] * CCR );
+					randomGraph.connectivityMatrix[(*it)].list.push_back( temp );
+					numberOfEdges++;
+					remainingNodes.erase( remainingNodes.begin()+chosenIndex );
+				}
+			}
+
+			// for(j=0; j<numberOfOutDegree; ++j)
+			// {
+			// 	int64_t t1 = randomInRange(i+1, height-1);
+			// 	int64_t t2 = randomInRange(0, nodesInList[t1].size()-1);
+			// 	DEBUG3(cout<<" | ("<<t1<<","<<t2<<")";)			
+			// 	pair < int64_t, double > temp;
+			// 	temp.first = nodesInList[t1][t2];
+			// 	temp.second = ceil( randomGraph.singleConstraintVwgt[ (*it) ] * CCR );
+			// 	randomGraph.connectivityMatrix[(*it)].list.push_back( temp );
+			// 	numberOfEdges++;
+			// }
 		}
 	}
 
@@ -215,7 +428,8 @@ RAGGenerator :: run()
 				
 				pair < int64_t, double > temp;
 				temp.first = currentNode;
-				temp.second = ceil( randomGraph.singleConstraintVwgt[ nodesInList[t1][t2] ] * CCR );
+				temp.second = ceil(randDoubleInRange( randomGraph.singleConstraintVwgt[ nodesInList[t1][t2] ] * CCR * ( 1-applicationGraphBeta/2 ), randomGraph.singleConstraintVwgt[ nodesInList[t1][t2] ] * CCR * ( 1+applicationGraphBeta/2 ) ));
+				//temp.second = ceil( randomGraph.singleConstraintVwgt[ nodesInList[t1][t2] ] * CCR );
 				randomGraph.connectivityMatrix[ nodesInList[t1][t2] ].list.push_back( temp );
 				DEBUG2(cout<<"\nT["<<currentNode<<"] doesnt have any parents | forming a connection from T["<<nodesInList[t1][t2]<<"] to "<<currentNode;)
 				numberOfEdges++;
@@ -223,23 +437,44 @@ RAGGenerator :: run()
 		}
 	}
 
+	// Some nodes in the same level were not 
+
 	DEBUG1(cout<<"\nHeight after pruning and introducing comm links: "<<height<<endl;)
 	for(i=0; i<height; ++i)
 	{
-		DEBUG1(cout<<"Level "<<i+1<<" : ";)
+		DEBUG3(cout<<"Level "<<i+1<<" : ";)
 		vector < int64_t >::iterator it;
 		for(it = nodesInList[i].begin(); it!= nodesInList[i].end(); ++it)
-			DEBUG1(cout<<(*it)<<"-";)
-		DEBUG1(cout<<"\n";)
+		{
+			DEBUG3(cout<<(*it)<<"-";)
+		}
+		DEBUG3(cout<<"\n";)
 	}
 
-	
-	DEBUG1(cout<<"\nNumber of Edges = "<<numberOfEdges<<endl;)
 	filename=string("app-");
 	ostringstream oss;
 	oss<<filename<<numberOfNodes<<"-"<<outDegree<<"-"<<CCR<<"-"<<alpha<<"-"<<beta<<"-"<<gamma << ".grf";
-	filename = oss.str();
-	randomGraph.createMETISFile(numberOfNodes, numberOfEdges, _NUM_CONSTRAINTS, filename);
+	filename = oss.str();	
+	DEBUG1(cout<<"\nNumber of Edges = "<<numberOfEdges<<endl;)
+	DEBUG1(cout<<"\nChecking for correctness of graph.\n\t1. Multiple heads - ";)
+	if( hasMultipleHeads() == false )
+		cout<<"Failed!\n\n+++++\nFile "<<filename<<"has mutliple heads.\n\n";
+	else
+		cout<<"Passed!";
+	DEBUG1(cout<<"\n\t2. Multiple edges between nodes - ";)
+	if( hasMultipleEdgesBetweenNodes() == false )
+		cout<<"Failed!\n\n+++++\nFile "<<filename<<" has multiple edges between tasks.\n\n";
+	else
+		cout<<"Passed!";
+
+	int seed = rand()%1000000;
+	randomGraph.createMETISFile(numberOfNodes, numberOfEdges, numberOfConstraints, filename, seed, beta, heftStyleGraphs);
+	DEBUG1(cout<<"\n\t3. Self check on .grf file";)
+	if( checkMETISFile() == false )
+		cout<<"Failed!\n\n+++++\n"<<filename<<" failed\n\n";
+	else
+		cout<<"Passed!";
+
 	printDOTFile();
 
 	DEBUG1(cout<<"\n[RAGGenerator::run] - Exiting\n";)
@@ -248,7 +483,11 @@ RAGGenerator :: run()
 int
 main(int argc, char *argv[])
 {
-	if(argc != 8 )
+	if(argc == 2)
+	{
+
+	}
+	if(argc != 8 && argc != 2)
 	{
 		cout<<"\nImproper Usage. Arguments are as follows : ";
 		cout<<"\n1. (n) Number of Nodes \\in Z^+";
@@ -260,7 +499,8 @@ main(int argc, char *argv[])
 		cout<<"\n7. (g) Gamma \\in Q^+ && 0<=g<=100\n\tGamma decides how computation is spread across the graph. Smaller values of gamma gives uniformly distributed graphs while larger values give skewed graphs.\n";
 		exit( 0 );
 	}
-	RAGGenerator g( atof(argv[1]), atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), atof(argv[6]), atof(argv[7]) );
+	
+	RAGGenerator g( atof(argv[1]), atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), atof(argv[6]), atof(argv[7]), true);
 	g.run();
 }
 

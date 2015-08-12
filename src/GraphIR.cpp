@@ -9,7 +9,7 @@ int
 GraphIR::makeGraphDirected()
 {
 	int64_t i=0, j=0, numberOfSuccessors, k=0;
-	for(i=0; i<nvtxs; ++i)
+	for(i=0; i<numberOfVertices; ++i)
 	{
 		numberOfSuccessors = connectivityMatrix[i].size();
 		for(j=0; j<numberOfSuccessors; ++j)
@@ -32,7 +32,7 @@ GraphIR::makeGraphDirected()
 int
 GraphIR::parseMETIS(std::string fileName, int offset)
 {
-	DEBUG0(cout<<"\n[parseMETIS] - fileName="<<fileName;)
+	DEBUG1(cout<<"\n[parseMETIS] - Entering | fileName="<<fileName;)
 	const string& delimiters = " ";
 	string fileExtension = fileName.substr( fileName.size() - 3 );
 	if( fileExtension.compare("xml") == 0 )
@@ -75,17 +75,17 @@ GraphIR::parseMETIS(std::string fileName, int offset)
 				cout << "Error: Input graph without constraints specified" << endl;
 				return -1;
 			}
-			nvtxs = tokens[ 0 ];
+			numberOfVertices = tokens[ 0 ];
 			ncon = tokens[ 3 ];
 			line_no++;
-			for(int i=0; i<nvtxs; ++i)
+			for(int i=0; i<numberOfVertices; ++i)
 			{
 				ConnectivityMatrix tempVector;
 				connectivityMatrix.push_back( tempVector );
 			}
-			singleConstraintVwgt.resize( nvtxs, 0 );
+			singleConstraintVwgt.resize( numberOfVertices, 0 );
 
-			vwgt.resize( nvtxs * ncon, 0 );
+			vwgt.resize( numberOfVertices * ncon, 0 );
 		}
 		else
 		{
@@ -125,8 +125,8 @@ GraphIR::parseMETIS(std::string fileName, int offset)
 	input_file.close();
 	// double sum = 0;
 	// int64_t numberOfEdges = 0, i, j;
-	// DEBUG3(cout<<"\nnvtxs="<<nvtxs<<endl);
-	// for(i=0; i<nvtxs; ++i)
+	// DEBUG3(cout<<"\nnumberOfVertices="<<numberOfVertices<<endl);
+	// for(i=0; i<numberOfVertices; ++i)
 	// {
 	// 	DEBUG3(cout<<connectivityMatrix[i].list.size()<<" | ";)
 	// 	for(j=0; j<connectivityMatrix[i].list.size(); ++j)
@@ -139,11 +139,11 @@ GraphIR::parseMETIS(std::string fileName, int offset)
 	// double meanEdgeWeight = sum/numberOfEdges;
 	// DEBUG3(cout<<"\n[readApplicationGraph] - Sum of edge weights - "<<sum;)
 	// DEBUG2(cout<<"\n[readApplicationGraph] - Exiting";)
-	cout<<"===> parseMETIS : Exiting\n";
+	DEBUG1(cout<<"===> parseMETIS : Exiting";)
 }
 
 int
-GraphIR :: createMETISFile( int64_t numberOfNodes, int64_t numberOfEdges, int ncon, string fileName )
+GraphIR :: createMETISFile( int64_t numberOfNodes, int64_t numberOfEdges, int ncon, string fileName, int64_t seed, int beta, bool heftStyleGraphs )
 {
 	fstream metis, udmetis;
 	int64_t i, j, counter = 0;
@@ -154,15 +154,21 @@ GraphIR :: createMETISFile( int64_t numberOfNodes, int64_t numberOfEdges, int nc
 	temp2 = fileName + temp1;
 	metis.open(fileName.c_str(), fstream::out);
 	//udmetis.open(temp2.c_str(), fstream::out);
-	metis<<numberOfNodes<<" "<<numberOfEdges<<" 011 "<<ncon;
+	metis<<fixed<<numberOfNodes<<" "<<numberOfEdges<<" 011 "<<ncon;
+	if( heftStyleGraphs == true )
+		metis<<" "<<seed<<" "<<beta;
 	for(i=0; i<numberOfNodes; ++i)
 	{
 		metis<<endl;
 		for(j=0; j<ncon; ++j)
 			metis<<vwgt[i*ncon + j]<<" ";
 		for(j=0; j<connectivityMatrix[i].size(); ++j)
+		{
 			if( connectivityMatrix[i].list[j].second > 0 )
-				metis<<connectivityMatrix[i].list[j].first+1<<" "<<connectivityMatrix[i].list[j].second<<" ";
+			{	
+				metis<<connectivityMatrix[i].list[j].first+1<<" "<<(int64_t)connectivityMatrix[i].list[j].second<<" ";
+			}
+		}
 	}
 	
 	numberOfEdges = 0;
@@ -171,6 +177,7 @@ GraphIR :: createMETISFile( int64_t numberOfNodes, int64_t numberOfEdges, int nc
 			if( connectivityMatrix[i].list[j].second != 0 )
 				++numberOfEdges;
 
+	cout<<"\nNumber of edges = "<<numberOfEdges;
 	/*
 	udmetis<<numberOfNodes<<" "<<numberOfEdges<<" 011 "<<ncon;
 	for(i=0; i<numberOfNodes; i++)
@@ -227,13 +234,13 @@ GraphIR :: parseXML( std::string fileName )
 			else if( tokens[0].find("</Nodes>") != string::npos )
 			{
 				fflush(stdout);
-				nvtxs = numberOfNodes;
-				for(int i=0; i<nvtxs; ++i)
+				numberOfVertices = numberOfNodes;
+				for(int i=0; i<numberOfVertices; ++i)
 				{
 					ConnectivityMatrix tempConnectivityMatrix;
 					connectivityMatrix.push_back( tempConnectivityMatrix );
 				}
-				singleConstraintVwgt.resize( nvtxs, 0 );
+				singleConstraintVwgt.resize( numberOfVertices, 0 );
 				cout<<"\nTotal number of nodes found = "<<numberOfNodes;
 				fflush( stdout );
 			}
@@ -303,8 +310,8 @@ GraphIR :: parseXML( std::string fileName )
 		}
 		line_no++;
 	}
-	singleConstraintVwgt.resize(nvtxs, 0);
-	for(i=0; i<nvtxs; ++i)
+	singleConstraintVwgt.resize(numberOfVertices, 0);
+	for(i=0; i<numberOfVertices; ++i)
 		for(int j=0; j<ncon; ++j)
 			singleConstraintVwgt[i] += vwgt[i*ncon + j];
 		
@@ -313,7 +320,7 @@ GraphIR :: parseXML( std::string fileName )
 
 GraphIR::GraphIR()
 {
-	nvtxs = ncon = 0;
+	numberOfVertices = ncon = 0;
 }
 
 GraphIR::~GraphIR()
@@ -324,7 +331,7 @@ GraphIR::~GraphIR()
 GraphIR GraphIR::operator = (GraphIR param)
 {
 	GraphIR temp;
-	temp.nvtxs = param.nvtxs;
+	temp.numberOfVertices = param.numberOfVertices;
 	temp.ncon = param.ncon;
 	temp.vwgt = param.vwgt;
 	return (temp);

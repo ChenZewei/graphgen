@@ -13,7 +13,7 @@
 class GraphIR
 {
 	public:
-	int64_t nvtxs,					// Number of vertices in G(V, E)
+	int64_t numberOfVertices,					// Number of vertices in G(V, E)
 	    	ncon;					// Number of connections in G(V, E)
 	std::vector < int64_t > vwgt; 	// Constraint vector.
 	std::vector < int64_t > singleConstraintVwgt; 	// Constraint vector.
@@ -23,7 +23,7 @@ class GraphIR
 
 	int parseMETIS(std::string fileName, int offset=1);
 	int parseXML(std::string fileName);
-	int createMETISFile( int64_t numberOfNodes, int64_t numberOfEdges, int ncon, std::string fileName); 
+	int createMETISFile( int64_t numberOfNodes, int64_t numberOfEdges, int ncon, std::string fileName, int64_t seed=0, int beta=0, bool heftStyleGraphs=false); 
 	int makeGraphDirected();
 	
 	GraphIR();

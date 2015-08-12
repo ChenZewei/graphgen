@@ -16,7 +16,7 @@ CPP = g++
 CPPFLAGS = -O3 -g -Iincl/
 STRIP = strip
 .PHONY = clean export clean-all backup
-TEMP = $(shell ls | grep -v "makefile")
+TEMP = $(shell ls | grep -v "makefile" | grep -v "createdgraphs.log")
 
 all: ${EXE}
 
