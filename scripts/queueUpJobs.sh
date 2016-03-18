@@ -1,18 +1,23 @@
-executable=/home/aravind/Work/Task-Partitioning/Random-Graph-Generator/main.exe
-destinationAPPdir=outputs/tpds15-graphs-r2
-destinationDOTdir=outputs/tpds15-graphs-r2-DOT
+oldExecutable=$PWD/main.exe
+cp $oldExecutable $PWD/currentlyRunning.exe
+executable=$PWD/currentlyRunning.exe
+destinationAPPdir=outputs/RGG-high
+destinationDOTdir=outputs/RGG-high-DOT
+
+# These variables are redefined inside thesis workload. Hence making them globals for now. Put them back to old form for shorter runs
+
 sleepTime=0.1 # This is by default in seconds. Add m next to it to convert to minutes
 
 node=( 128 256 512 1024 2048 4096 8192 16384 )
 indegree=(1)
-outdegree=(1 2 3 4 5 6 7 8)
-CCR=(0.0001 0.001 0.01 0.1 0.5 1 10)
-alpha=(0.1 1.0 10)
+outdegree=(2 4 8)
+CCR=(0.001 0.01 0.1 0.5 1 5 10)
+alpha=(0.1 0.25 0.75 1.0 )
 beta=(10 25 50 75 95)
 gamma=(10 25 50 75 95)
 
-mkdir -p $destinationAPPdir;
-mkdir -p $destinationDOTdir;
+declare -g destinationAPPdir
+declare -g destinationDOTdir
 
 declare -g arr1
 declare -g currentCounter
@@ -36,6 +41,8 @@ executeConfiguration()
 
 submitJobs()
 {
+	mkdir -p $destinationAPPdir;
+	mkdir -p $destinationDOTdir;
 	for n in "${node[@]}"
 	do
 		for i in "${indegree[@]}"
@@ -81,7 +88,7 @@ scheduleJobs()
 		if [ $counter -lt $numberOfParallelInstances ]
 		then
 			executeConfiguration $currentCounter&
-			echo "Job[$currentCounter] launched!"
+			echo "Job[$currentCounter/$globalCounter] - ${arr1[currentCounter]} - launched! counter=$counter"
 			listOfPIDs[$currentCounter]=$!
 			((counter++))
 		else
@@ -124,7 +131,7 @@ scheduleJobs()
 			executeConfiguration $currentCounter&
 			listOfPIDs[$currentCounter]=$!
 			((counter++))
-			echo "Job[$currentCounter] launched! counter=$counter"
+			echo "Job[$currentCounter/$globalCounter] - ${arr1[currentCounter]} - launched! counter=$counter"
 #			echo in else-counter=$i $!
 			
 		fi
@@ -169,6 +176,11 @@ test_workload()
 	debug_print
 }
 
+# thesis_workload()
+# {
+# 	submitJobs
+# }
+
 main()
 {
 	echo "Initializing directory variables.."
@@ -184,8 +196,11 @@ main()
 
 	numberOfParallelInstances=14
 	scheduleJobs
+	sleep 5
 	mv app*.grf $destinationAPPdir
 	mv app*.dot $destinationDOTdir
+	echo "El Finito! $globalCounter jobs run!"
+	exit
 }
 
 main

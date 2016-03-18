@@ -14,7 +14,10 @@ class GraphIR
 {
 	public:
 	int64_t numberOfVertices,					// Number of vertices in G(V, E)
-	    	ncon;					// Number of connections in G(V, E)
+	    	ncon,					// Number of connections in G(V, E)
+	    	seed;					// Seed will be read if it exists as the 5th number in the first line
+	    							// Otherwise it is inited to 0 in the constructor
+	double beta;					// Stores the value of beta when heftStyleGraphs is true
 	std::vector < int64_t > vwgt; 	// Constraint vector.
 	std::vector < int64_t > singleConstraintVwgt; 	// Constraint vector.
 	std::vector < ConnectivityMatrix > connectivityMatrix;

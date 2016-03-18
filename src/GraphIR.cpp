@@ -33,6 +33,7 @@ int
 GraphIR::parseMETIS(std::string fileName, int offset)
 {
 	DEBUG1(cout<<"\n[parseMETIS] - Entering | fileName="<<fileName;)
+	int retVal=2; // Func returns 1 if graph being read is classic (heft) & 2 if it is our style graph
 	const string& delimiters = " ";
 	string fileExtension = fileName.substr( fileName.size() - 3 );
 	if( fileExtension.compare("xml") == 0 )
@@ -50,10 +51,12 @@ GraphIR::parseMETIS(std::string fileName, int offset)
 		getline( input_file, line );
 		string::size_type lastPos = line.find_first_not_of( delimiters, 0 );
 		string::size_type pos = line.find_first_of( delimiters, lastPos );
+		DEBUG5(cout<<"\n";)
 		while( string::npos != pos || string::npos != lastPos )
 		{
 			string temp = line.substr( lastPos, pos - lastPos );
 			tokens.push_back( atoll ( temp.c_str() ) );
+			DEBUG5(cout<<atoll ( temp.c_str() )<<" ";)
 			lastPos = line.find_first_not_of( delimiters, pos );
 			pos = line.find_first_of( delimiters, lastPos );
 		}
@@ -61,22 +64,46 @@ GraphIR::parseMETIS(std::string fileName, int offset)
 			continue;
 		else if( line_no == 0 )
 		{
-			if( tokens.size() != 4 )
+			DEBUG5(cout<<"\nline_no="<<line_no<<" | tokens.size()="<<tokens.size();)
+			switch( tokens.size() )
 			{
-				cout << "\ntokens.size()="<<tokens.size()<<" Error: Input graph file format incorrect" << endl;
-				for(int i=0; i<tokens.size();++i)
+				case 4:
 				{
-					cout<<"\ntokens["<<i<<"]="<<tokens[i];
+					if( tokens[ 2 ] != 11 )
+					{
+						cout << "Error: Input graph without constraints specified" << endl;
+						return -1;
+					}
+					numberOfVertices = tokens[ 0 ];
+					ncon = tokens[ 3 ];
+					break;
 				}
-				return -1;
+				case 6:
+				{
+					if( tokens[ 2 ] != 11 )
+					{
+						cout << "Error: Input graph without constraints specified" << endl;
+						return -1;
+					}
+					numberOfVertices = tokens[ 0 ];
+					ncon = tokens[ 3 ];
+					seed = tokens[ 4 ];
+					beta = (double)tokens[ 5 ] / 100;
+					retVal=1;
+					break;
+				}
+				default:
+				{
+					cout << "\ntokens.size()="<<tokens.size()<<" Error: Input graph file format incorrect" << endl;
+					for(int i=0; i<tokens.size();++i)
+					{
+						cout<<"\ntokens["<<i<<"]="<<tokens[i];
+					}
+					return -1;
+					break;
+				}
 			}
-			if( tokens[ 2 ] != 11 )
-			{
-				cout << "Error: Input graph without constraints specified" << endl;
-				return -1;
-			}
-			numberOfVertices = tokens[ 0 ];
-			ncon = tokens[ 3 ];
+						
 			line_no++;
 			for(int i=0; i<numberOfVertices; ++i)
 			{
@@ -320,7 +347,7 @@ GraphIR :: parseXML( std::string fileName )
 
 GraphIR::GraphIR()
 {
-	numberOfVertices = ncon = 0;
+	numberOfVertices = ncon = seed = beta = 0;
 }
 
 GraphIR::~GraphIR()
@@ -334,6 +361,8 @@ GraphIR GraphIR::operator = (GraphIR param)
 	temp.numberOfVertices = param.numberOfVertices;
 	temp.ncon = param.ncon;
 	temp.vwgt = param.vwgt;
+	temp.seed = param.seed;
+	temp.beta = param.beta;
 	return (temp);
 }
 

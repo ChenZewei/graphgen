@@ -32,10 +32,24 @@ RAGGenerator :: RAGGenerator(int64_t n, int64_t i, int64_t o, double c, double a
 	}
 	randomGraph.singleConstraintVwgt.resize( n, 0 );
 	randomGraph.vwgt.resize( n * numberOfConstraints, 0 );
-	highPriorityConstraint.first=pow(10,4);
-	highPriorityConstraint.second=pow(10,6);
+
+	// RGG-low
+	highPriorityConstraint.first=pow(10,3);
+	highPriorityConstraint.second=pow(10,4);
 	lowPriorityConstraint.first=pow(10,2);
 	lowPriorityConstraint.second=pow(10,3);
+
+//	// RGG-medium
+//	highPriorityConstraint.first=pow(10,4);
+//	highPriorityConstraint.second=pow(10,5);
+//	lowPriorityConstraint.first=pow(10,2);
+//	lowPriorityConstraint.second=pow(10,3);
+
+//	// RGG-high
+//	highPriorityConstraint.first=pow(10,5);
+//	highPriorityConstraint.second=pow(10,6);
+//	lowPriorityConstraint.first=pow(10,2);
+//	lowPriorityConstraint.second=pow(10,3);
 }
 
 int64_t // Returns random number in range [a,b]
@@ -479,6 +493,14 @@ RAGGenerator :: run()
 
 	DEBUG1(cout<<"\n[RAGGenerator::run] - Exiting\n";)
 }
+
+//GraphIR createRandomGraphForApplication(GraphIR application, )
+//{
+//	GraphIR retVal=application;
+//	
+//
+//	return retVal;
+//}
 
 int
 main(int argc, char *argv[])

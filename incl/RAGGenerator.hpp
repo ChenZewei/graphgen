@@ -20,6 +20,8 @@ class RAGGenerator
 		string filename;
 		vector < vector < int64_t > > nodesInList;
 		pair <int64_t, int64_t> highPriorityConstraint, lowPriorityConstraint;
+		int64_t numberOfEdges;
+		int64_t nodesAllocated;
 
 		bool heftStyleGraphs;
 
